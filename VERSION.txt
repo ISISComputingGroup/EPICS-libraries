@@ -1,1 +1,2 @@
 boost 1-55 from www.boost.org
+slacking from https://github.com/coin-au-carre/slacking
