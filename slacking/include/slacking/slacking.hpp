@@ -304,7 +304,7 @@ std::string bool_to_string(const bool b) {
 
 inline
 std::ostream& operator<<(std::ostream &os, const Element& element) {
-    return os << element.label << '=' << element.value;
+    return os << element.label << '=' << cpr::util::urlEncode(element.value);
 }
 
 inline
