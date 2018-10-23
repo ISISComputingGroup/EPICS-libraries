@@ -1,0 +1,3 @@
+[submodule "cxxtest/master"]
+	path = cxxtest/master
+	url = https://github.com/ISISComputingGroup/EPICS-cxxtest.git
