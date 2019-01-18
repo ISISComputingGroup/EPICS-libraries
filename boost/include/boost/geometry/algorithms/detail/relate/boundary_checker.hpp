@@ -11,11 +11,14 @@
 #ifndef BOOST_GEOMETRY_ALGORITHMS_DETAIL_RELATE_BOUNDARY_CHECKER_HPP
 #define BOOST_GEOMETRY_ALGORITHMS_DETAIL_RELATE_BOUNDARY_CHECKER_HPP
 
+#include <boost/core/ignore_unused.hpp>
 #include <boost/geometry/util/range.hpp>
 #include <boost/geometry/algorithms/num_points.hpp>
 #include <boost/geometry/algorithms/detail/sub_range.hpp>
 
 #include <boost/geometry/algorithms/detail/equals/point_point.hpp>
+
+#include <boost/geometry/util/has_nan_coordinate.hpp>
 
 namespace boost { namespace geometry
 {
@@ -44,7 +47,7 @@ public:
     template <boundary_query BoundaryQuery>
     bool is_endpoint_boundary(point_type const& pt) const
     {
-        boost::ignore_unused_variable_warning(pt);
+        boost::ignore_unused(pt);
 #ifdef BOOST_GEOMETRY_DEBUG_RELATE_BOUNDARY_CHECKER
         // may give false positives for INT
         BOOST_GEOMETRY_ASSERT( (BoundaryQuery == boundary_front || BoundaryQuery == boundary_any)
@@ -90,19 +93,43 @@ public:
             for ( multi_iterator it = boost::begin(geometry) ;
                   it != boost::end(geometry) ; ++ it )
             {
+                typename boost::range_reference<Geometry const>::type
+                    ls = *it;
+
                 // empty or point - no boundary
-                if ( boost::size(*it) < 2 )
+                if (boost::size(ls) < 2)
+                {
                     continue;
+                }
+
+                typedef typename boost::range_reference
+                    <
+                        typename boost::range_value<Geometry const>::type const
+                    >::type point_reference;
+
+                point_reference front_pt = range::front(ls);
+                point_reference back_pt = range::back(ls);
 
                 // linear ring or point - no boundary
-                if ( equals::equals_point_point(range::front(*it), range::back(*it)) )
-                    continue;
-
-                boundary_points.push_back(range::front(*it));
-                boundary_points.push_back(range::back(*it));
+                if (! equals::equals_point_point(front_pt, back_pt))
+                {
+                    // do not add points containing NaN coordinates
+                    // because they cannot be reasonably compared, e.g. with MSVC
+                    // an assertion failure is reported in std::equal_range()
+                    if (! geometry::has_nan_coordinate(front_pt))
+                    {
+                        boundary_points.push_back(front_pt);
+                    }
+                    if (! geometry::has_nan_coordinate(back_pt))
+                    {
+                        boundary_points.push_back(back_pt);
+                    }
+                }
             }
 
-            std::sort(boundary_points.begin(), boundary_points.end(), geometry::less<point_type>());
+            std::sort(boundary_points.begin(),
+                      boundary_points.end(),
+                      geometry::less<point_type>());
 
             is_filled = true;
         }

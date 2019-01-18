@@ -1,4 +1,4 @@
-//  (C) Copyright Gennadiy Rozental 2011-2014.
+//  (C) Copyright Gennadiy Rozental 2001.
 //  Distributed under the Boost Software License, Version 1.0.
 //  (See accompanying file LICENSE_1_0.txt or copy at
 //  http://www.boost.org/LICENSE_1_0.txt)
@@ -35,11 +35,15 @@ namespace unit_test {
 namespace decorator {
 
 // ************************************************************************** //
-// **************             decorator::collector             ************** //
+// **************             decorator::collector_t           ************** //
 // ************************************************************************** //
 
-collector&
-collector::operator*( base const& d )
+// singleton pattern
+BOOST_TEST_SINGLETON_CONS_IMPL(collector_t)
+
+
+collector_t&
+collector_t::operator*( base const& d )
 {
     m_tu_decorators.push_back( d.clone() );
 
@@ -49,7 +53,7 @@ collector::operator*( base const& d )
 //____________________________________________________________________________//
 
 void
-collector::store_in( test_unit& tu )
+collector_t::store_in( test_unit& tu )
 {
     tu.p_decorators.value.insert( tu.p_decorators.value.end(), m_tu_decorators.begin(), m_tu_decorators.end() );
 }
@@ -57,9 +61,17 @@ collector::store_in( test_unit& tu )
 //____________________________________________________________________________//
 
 void
-collector::reset()
+collector_t::reset()
 {
     m_tu_decorators.clear();
+}
+
+//____________________________________________________________________________//
+
+std::vector<base_ptr>
+collector_t::get_lazy_decorators() const
+{
+    return m_tu_decorators;
 }
 
 //____________________________________________________________________________//
@@ -68,10 +80,10 @@ collector::reset()
 // **************               decorator::base                ************** //
 // ************************************************************************** //
 
-collector&
+collector_t&
 base::operator*() const
 {
-    return collector::instance() * *this;
+    return collector_t::instance() * *this;
 }
 
 // ************************************************************************** //
@@ -132,10 +144,10 @@ depends_on::apply( test_unit& tu )
 #if !BOOST_TEST_SUPPORT_TOKEN_ITERATOR
     BOOST_TEST_SETUP_ASSERT( false, "depends_on decorator is not supported on this platform" );
 #else
-    string_token_iterator tit( m_dependency, (dropped_delimeters = "/", kept_delimeters = dt_none) );
+    utils::string_token_iterator tit( m_dependency, (utils::dropped_delimeters = "/", utils::kept_delimeters = utils::dt_none) );
 
     test_unit* dep = &framework::master_test_suite();
-    while( tit != string_token_iterator() ) {
+    while( tit != utils::string_token_iterator() ) {
         BOOST_TEST_SETUP_ASSERT( dep->p_type == TUT_SUITE, std::string( "incorrect dependency specification " ) + m_dependency );
 
         test_unit_id next_id = static_cast<test_suite*>(dep)->get( *tit );
