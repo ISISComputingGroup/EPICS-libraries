@@ -34,13 +34,14 @@
 #endif
 
 #include <boost/config.hpp>
-#include <boost/detail/endian.hpp>
+#include <boost/predef/other/endian.h>
 #define BOOST_MINIMAL_INTEGER_COVER_OPERATORS
 #define BOOST_NO_IO_COVER_OPERATORS
 #include <boost/spirit/home/support/detail/endian/cover_operators.hpp>
 #undef  BOOST_NO_IO_COVER_OPERATORS
 #undef  BOOST_MINIMAL_INTEGER_COVER_OPERATORS
 #include <boost/type_traits/is_signed.hpp>
+#include <boost/type_traits/make_unsigned.hpp>
 #include <boost/cstdint.hpp>
 #include <boost/static_assert.hpp>
 #include <boost/spirit/home/support/detail/scoped_enum_emulation.hpp>
@@ -70,9 +71,9 @@ namespace boost { namespace spirit
     {
       typedef unrolled_byte_loops<T, n_bytes - 1, sign> next;
 
-      static T load_big(const unsigned char* bytes)
+      static typename boost::make_unsigned<T>::type load_big(const unsigned char* bytes)
         { return *(bytes - 1) | (next::load_big(bytes - 1) << 8); }
-      static T load_little(const unsigned char* bytes)
+      static typename boost::make_unsigned<T>::type load_little(const unsigned char* bytes)
         { return *bytes | (next::load_little(bytes + 1) << 8); }
 
       static void store_big(char* bytes, T value)
@@ -104,10 +105,10 @@ namespace boost { namespace spirit
     template <typename T>
     struct unrolled_byte_loops<T, 1, true>
     {
-      static T load_big(const unsigned char* bytes)
-        { return *reinterpret_cast<const signed char*>(bytes - 1); }
-      static T load_little(const unsigned char* bytes)
-        { return *reinterpret_cast<const signed char*>(bytes); }
+      static typename boost::make_unsigned<T>::type load_big(const unsigned char* bytes)
+        { return *(bytes - 1); }
+      static typename boost::make_unsigned<T>::type load_little(const unsigned char* bytes)
+        { return *bytes; }
       static void store_big(char* bytes, T value)
         { *(bytes - 1) = static_cast<char>(value); }
       static void store_little(char* bytes, T value)
@@ -118,8 +119,8 @@ namespace boost { namespace spirit
     inline
     T load_big_endian(const void* bytes)
     {
-      return unrolled_byte_loops<T, n_bytes>::load_big
-        (static_cast<const unsigned char*>(bytes) + n_bytes);
+      return static_cast<T>(unrolled_byte_loops<T, n_bytes>::load_big
+        (static_cast<const unsigned char*>(bytes) + n_bytes));
     }
 
     template <>
@@ -164,8 +165,8 @@ namespace boost { namespace spirit
     inline
     T load_little_endian(const void* bytes)
     {
-      return unrolled_byte_loops<T, n_bytes>::load_little
-        (static_cast<const unsigned char*>(bytes));
+      return static_cast<T>(unrolled_byte_loops<T, n_bytes>::load_little
+        (static_cast<const unsigned char*>(bytes)));
     }
 
     template <>
@@ -380,13 +381,13 @@ namespace boost { namespace spirit
         typedef T value_type;
 #   ifndef BOOST_ENDIAN_NO_CTORS
         endian() BOOST_ENDIAN_DEFAULT_CONSTRUCT
-#     ifdef BOOST_BIG_ENDIAN
+#     if BOOST_ENDIAN_BIG_BYTE
         explicit endian(T val)    { detail::store_big_endian<T, n_bits/8>(m_value, val); }
 #     else
         explicit endian(T val)    { detail::store_little_endian<T, n_bits/8>(m_value, val); }
 #     endif
 #   endif
-#   ifdef BOOST_BIG_ENDIAN
+#   if BOOST_ENDIAN_BIG_BYTE
         endian & operator=(T val) { detail::store_big_endian<T, n_bits/8>(m_value, val); return *this; }
         operator T() const        { return detail::load_big_endian<T, n_bits/8>(m_value); }
 #   else
@@ -411,13 +412,13 @@ namespace boost { namespace spirit
         typedef T value_type;
 #   ifndef BOOST_ENDIAN_NO_CTORS
         endian() BOOST_ENDIAN_DEFAULT_CONSTRUCT
-#     ifdef BOOST_BIG_ENDIAN
+#     if BOOST_ENDIAN_BIG_BYTE
         endian(T val) : m_value(val) { }
 #     else
         explicit endian(T val)    { detail::store_big_endian<T, sizeof(T)>(&m_value, val); }
 #     endif
 #   endif
-#   ifdef BOOST_BIG_ENDIAN
+#   if BOOST_ENDIAN_BIG_BYTE
         endian & operator=(T val) { m_value = val; return *this; }
         operator T() const        { return m_value; }
 #   else
@@ -439,13 +440,13 @@ namespace boost { namespace spirit
         typedef T value_type;
 #   ifndef BOOST_ENDIAN_NO_CTORS
         endian() BOOST_ENDIAN_DEFAULT_CONSTRUCT
-#     ifdef BOOST_LITTLE_ENDIAN
+#     if BOOST_ENDIAN_LITTLE_BYTE
         endian(T val) : m_value(val) { }
 #     else
         explicit endian(T val)    { detail::store_little_endian<T, sizeof(T)>(&m_value, val); }
 #     endif
 #   endif
-#   ifdef BOOST_LITTLE_ENDIAN
+#   if BOOST_ENDIAN_LITTLE_BYTE
         endian & operator=(T val) { m_value = val; return *this; }
         operator T() const        { return m_value; }
     #else

@@ -2,7 +2,7 @@
 //
 // R-tree R*-tree insert algorithm implementation
 //
-// Copyright (c) 2011-2014 Adam Wulkiewicz, Lodz, Poland.
+// Copyright (c) 2011-2015 Adam Wulkiewicz, Lodz, Poland.
 //
 // Use, modification and distribution is subject to the Boost Software License,
 // Version 1.0. (See accompanying file LICENSE_1_0.txt or copy at
@@ -10,6 +10,8 @@
 
 #ifndef BOOST_GEOMETRY_INDEX_DETAIL_RTREE_RSTAR_INSERT_HPP
 #define BOOST_GEOMETRY_INDEX_DETAIL_RTREE_RSTAR_INSERT_HPP
+
+#include <boost/core/ignore_unused.hpp>
 
 #include <boost/geometry/index/detail/algorithms/content.hpp>
 
@@ -123,7 +125,7 @@ public:
         }
         BOOST_CATCH_END
 
-        ::boost::ignore_unused_variable_warning(parameters);
+        ::boost::ignore_unused(parameters);
     }
 
 private:
@@ -231,14 +233,26 @@ struct level_insert_base
     }
 
     template <typename Node>
-    inline void recalculate_aabb_if_necessary(Node &n) const
+    inline void recalculate_aabb_if_necessary(Node const& n) const
     {
         if ( !result_elements.empty() && !base::m_traverse_data.current_is_root() )
         {
             // calulate node's new box
-            base::m_traverse_data.current_element().first =
-                elements_box<Box>(rtree::elements(n).begin(), rtree::elements(n).end(), base::m_translator);
+            recalculate_aabb(n);
         }
+    }
+
+    template <typename Node>
+    inline void recalculate_aabb(Node const& n) const
+    {
+        base::m_traverse_data.current_element().first =
+            elements_box<Box>(rtree::elements(n).begin(), rtree::elements(n).end(), base::m_translator);
+    }
+
+    inline void recalculate_aabb(leaf const& n) const
+    {
+        base::m_traverse_data.current_element().first =
+            values_box<Box>(rtree::elements(n).begin(), rtree::elements(n).end(), base::m_translator);
     }
 
     size_type result_relative_level;

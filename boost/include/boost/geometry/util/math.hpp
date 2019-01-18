@@ -4,11 +4,12 @@
 // Copyright (c) 2008-2015 Bruno Lalande, Paris, France.
 // Copyright (c) 2009-2015 Mateusz Loskot, London, UK.
 
-// This file was modified by Oracle on 2014, 2015.
-// Modifications copyright (c) 2014-2015, Oracle and/or its affiliates.
+// This file was modified by Oracle on 2014, 2015, 2018.
+// Modifications copyright (c) 2014-2018, Oracle and/or its affiliates.
 
 // Contributed and/or modified by Menelaos Karavelas, on behalf of Oracle
 // Contributed and/or modified by Adam Wulkiewicz, on behalf of Oracle
+// Contributed and/or modified by Adeel Ahmad, as part of Google Summer of Code 2018 program
 
 // Parts of Boost.Geometry are redesigned from Geodan's Geographic Library
 // (geolib/GGL), copyright (c) 1995-2010 Geodan, Amsterdam, the Netherlands.
@@ -31,6 +32,8 @@
 #include <boost/numeric/conversion/cast.hpp>
 #include <boost/type_traits/is_fundamental.hpp>
 #include <boost/type_traits/is_integral.hpp>
+
+#include <boost/geometry/core/cs.hpp>
 
 #include <boost/geometry/util/select_most_precise.hpp>
 
@@ -66,6 +69,19 @@ template <typename T>
 inline T const& greatest(T const& v1, T const& v2, T const& v3, T const& v4, T const& v5)
 {
     return (std::max)(greatest(v1, v2, v3, v4), v5);
+}
+
+
+template <typename T>
+inline T bounded(T const& v, T const& lower, T const& upper)
+{
+    return (std::min)((std::max)(v, lower), upper);
+}
+
+template <typename T>
+inline T bounded(T const& v, T const& lower)
+{
+    return (std::max)(v, lower);
 }
 
 
@@ -201,11 +217,36 @@ struct smaller<Type, true>
 {
     static inline bool apply(Type const& a, Type const& b)
     {
-        if (equals<Type, true>::apply(a, b, equals_default_policy()))
+        if (!(a < b)) // a >= b
         {
             return false;
         }
-        return a < b;
+        
+        return ! equals<Type, true>::apply(b, a, equals_default_policy());
+    }
+};
+
+template <typename Type,
+          bool IsFloatingPoint = boost::is_floating_point<Type>::value>
+struct smaller_or_equals
+{
+    static inline bool apply(Type const& a, Type const& b)
+    {
+        return a <= b;
+    }
+};
+
+template <typename Type>
+struct smaller_or_equals<Type, true>
+{
+    static inline bool apply(Type const& a, Type const& b)
+    {
+        if (a <= b)
+        {
+            return true;
+        }
+
+        return equals<Type, true>::apply(a, b, equals_default_policy());
     }
 };
 
@@ -407,6 +448,30 @@ struct relaxed_epsilon
     }
 };
 
+// This must be consistent with math::equals.
+// By default math::equals() scales the error by epsilon using the greater of
+// compared values but here is only one value, though it should work the same way.
+// (a-a) <= max(a, a) * EPS       -> 0 <= a*EPS
+// (a+da-a) <= max(a+da, a) * EPS -> da <= (a+da)*EPS
+template <typename T, bool IsFloat = boost::is_floating_point<T>::value>
+struct scaled_epsilon
+{
+    static inline T apply(T const& val)
+    {
+        return (std::max)(abs<T>::apply(val), T(1))
+                    * std::numeric_limits<T>::epsilon();
+    }
+};
+
+template <typename T>
+struct scaled_epsilon<T, false>
+{
+    static inline T apply(T const&)
+    {
+        return T(0);
+    }
+};
+
 // ItoF ItoI FtoF
 template <typename Result, typename Source,
           bool ResultIsInteger = std::numeric_limits<Result>::is_integer,
@@ -460,8 +525,14 @@ inline T relaxed_epsilon(T const& factor)
     return detail::relaxed_epsilon<T>::apply(factor);
 }
 
+template <typename T>
+inline T scaled_epsilon(T const& value)
+{
+    return detail::scaled_epsilon<T>::apply(value);
+}
 
-// Maybe replace this by boost equals or boost ublas numeric equals or so
+
+// Maybe replace this by boost equals or so
 
 /*!
     \brief returns true if both arguments are equal.
@@ -512,6 +583,24 @@ inline bool larger(T1 const& a, T2 const& b)
         >::apply(b, a);
 }
 
+template <typename T1, typename T2>
+inline bool smaller_or_equals(T1 const& a, T2 const& b)
+{
+    return detail::smaller_or_equals
+        <
+            typename select_most_precise<T1, T2>::type
+        >::apply(a, b);
+}
+
+template <typename T1, typename T2>
+inline bool larger_or_equals(T1 const& a, T2 const& b)
+{
+    return detail::smaller_or_equals
+        <
+            typename select_most_precise<T1, T2>::type
+        >::apply(b, a);
+}
+
 
 template <typename T>
 inline T d2r()
@@ -525,6 +614,65 @@ inline T r2d()
 {
     static T const conversion_coefficient = T(180.0) / geometry::math::pi<T>();
     return conversion_coefficient;
+}
+
+
+#ifndef DOXYGEN_NO_DETAIL
+namespace detail {
+
+template <typename DegreeOrRadian>
+struct as_radian
+{
+    template <typename T>
+    static inline T apply(T const& value)
+    {
+        return value;
+    }
+};
+
+template <>
+struct as_radian<degree>
+{
+    template <typename T>
+    static inline T apply(T const& value)
+    {
+        return value * d2r<T>();
+    }
+};
+
+template <typename DegreeOrRadian>
+struct from_radian
+{
+    template <typename T>
+    static inline T apply(T const& value)
+    {
+        return value;
+    }
+};
+
+template <>
+struct from_radian<degree>
+{
+    template <typename T>
+    static inline T apply(T const& value)
+    {
+        return value * r2d<T>();
+    }
+};
+
+} // namespace detail
+#endif
+
+template <typename DegreeOrRadian, typename T>
+inline T as_radian(T const& value)
+{
+    return detail::as_radian<DegreeOrRadian>::apply(value);
+}
+
+template <typename DegreeOrRadian, typename T>
+inline T from_radian(T const& value)
+{
+    return detail::from_radian<DegreeOrRadian>::apply(value);
 }
 
 
@@ -622,6 +770,118 @@ template <typename Result, typename T>
 inline Result rounding_cast(T const& v)
 {
     return detail::rounding_cast<Result, T>::apply(v);
+}
+
+/*!
+\brief Evaluate the sine and cosine function with the argument in degrees
+\note The results obey exactly the elementary properties of the trigonometric
+      functions, e.g., sin 9&deg; = cos 81&deg; = &minus; sin 123456789&deg;.
+      If x = &minus;0, then \e sinx = &minus;0; this is the only case where
+      &minus;0 is returned.
+*/
+template<typename T>
+inline void sin_cos_degrees(T const& x,
+                            T & sinx,
+                            T & cosx)
+{
+    // In order to minimize round-off errors, this function exactly reduces
+    // the argument to the range [-45, 45] before converting it to radians.
+    T remainder; int quotient;
+
+    remainder = math::mod(x, T(360));
+    quotient = floor(remainder / 90 + T(0.5));
+    remainder -= 90 * quotient;
+
+    // Convert to radians.
+    remainder *= d2r<T>();
+
+    T s = sin(remainder), c = cos(remainder);
+
+    switch (unsigned(quotient) & 3U)
+    {
+        case 0U: sinx =  s; cosx =  c; break;
+        case 1U: sinx =  c; cosx = -s; break;
+        case 2U: sinx = -s; cosx = -c; break;
+        default: sinx = -c; cosx =  s; break; // case 3U
+    }
+
+    // Set sign of 0 results. -0 only produced for sin(-0).
+    if (x != 0)
+    {
+        sinx += T(0); cosx += T(0);
+    }
+}
+
+/*!
+\brief Round off a given angle
+*/
+template<typename T>
+inline T round_angle(T x) {
+    static const T z = 1/T(16);
+
+    if (x == 0)
+    {
+        return 0;
+    }
+
+    T y = math::abs(x);
+
+    // z - (z - y) must not be simplified to y.
+    y = y < z ? z - (z - y) : y;
+
+    return x < 0 ? -y : y;
+}
+
+/*
+\brief Evaluate the polynomial in x using Horner's method.
+*/
+// TODO: adl1995 - Merge these functions with formulas/area_formulas.hpp
+// i.e. place them in one file.
+template <typename NT, typename IteratorType>
+inline NT horner_evaluate(NT x,
+                          IteratorType begin,
+                          IteratorType end)
+{
+    NT result(0);
+    IteratorType it = end;
+    do
+    {
+        result = result * x + *--it;
+    }
+    while (it != begin);
+    return result;
+}
+
+/*
+\brief Evaluate the polynomial.
+*/
+template<typename IteratorType, typename CT>
+inline CT polyval(IteratorType first,
+                  IteratorType last,
+                  const CT eps)
+{
+    int N = std::distance(first, last) - 1;
+    int index = 0;
+
+    CT y = N < 0 ? 0 : *(first + (index++));
+
+    while (--N >= 0)
+    {
+        y = y * eps + *(first + (index++));
+    }
+
+    return y;
+}
+
+/*
+\brief Short utility to calculate the power
+\ingroup utility
+*/
+template <typename T1, typename T2>
+inline T1 pow(T1 const& a, T2 const& b)
+{
+    using std::pow;
+    return pow(a, b);
 }
 
 } // namespace math

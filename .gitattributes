@@ -11,10 +11,8 @@
 *.sh text eol=lf
 *.bat text
 *.cmd text
-*.db text
-*.dbd text
-*.template text
-*.substitutions text
+*.html text
+*.xml text
 
 # Declare files that will always have CRLF line endings on checkout.
 *.sln text eol=crlf
