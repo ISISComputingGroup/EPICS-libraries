@@ -69,8 +69,8 @@ ErrorCode Error::getErrorCodeForCurlError(std::int32_t curl_code) {
             return ErrorCode::OPERATION_TIMEDOUT;
         case CURLE_SSL_CONNECT_ERROR:
             return ErrorCode::SSL_CONNECT_ERROR;
-        case CURLE_PEER_FAILED_VERIFICATION:
-            return ErrorCode::SSL_REMOTE_CERTIFICATE_ERROR;
+//        case CURLE_PEER_FAILED_VERIFICATION:  // this is now equal to CURLE_SSL_CACERT
+//            return ErrorCode::SSL_REMOTE_CERTIFICATE_ERROR;
         case CURLE_GOT_NOTHING:
             return ErrorCode::EMPTY_RESPONSE;
         case CURLE_SSL_ENGINE_NOTFOUND:
