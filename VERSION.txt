@@ -3,4 +3,4 @@ slacking from https://github.com/coin-au-carre/slacking
 jsonmcpp - 3.1.2 from https://github.com/nlohmann/json/releases
 cli11 - https://github.com/CLIUtils/CLI11 1.5.4
 https://github.com/cameron314/concurrentqueue   8f7e861
-
+Eigen 3.2.10
