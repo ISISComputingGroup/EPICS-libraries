@@ -9,6 +9,7 @@
 #define _GLIBCXX_USE_NANOSLEEP
 #endif
 
+#include <array>
 #include <chrono>
 #include <functional>
 #include <iostream>
@@ -17,6 +18,7 @@
 
 namespace CLI {
 
+/// This is a simple timer with pretty printing. Creating the timer starts counting.
 class Timer {
   protected:
     /// This is a typedef to make clocks easier to use
@@ -66,9 +68,9 @@ class Timer {
             f();
             std::chrono::duration<double> elapsed = clock::now() - start_;
             total_time = elapsed.count();
-        } while(n++ < 100 && total_time < target_time);
+        } while(n++ < 100u && total_time < target_time);
 
-        std::string out = make_time_str(total_time / n) + " for " + std::to_string(n) + " tries";
+        std::string out = make_time_str(total_time / static_cast<double>(n)) + " for " + std::to_string(n) + " tries";
         start_ = start;
         return out;
     }
@@ -77,16 +79,17 @@ class Timer {
     std::string make_time_str() const {
         time_point stop = clock::now();
         std::chrono::duration<double> elapsed = stop - start_;
-        double time = elapsed.count() / cycles;
+        double time = elapsed.count() / static_cast<double>(cycles);
         return make_time_str(time);
     }
 
     // LCOV_EXCL_START
+    /// This prints out a time string from a time
     std::string make_time_str(double time) const {
         auto print_it = [](double x, std::string unit) {
-            char buffer[50];
-            std::snprintf(buffer, 50, "%.5g", x);
-            return buffer + std::string(" ") + unit;
+            std::array<char, 50> buffer;
+            std::snprintf(buffer.data(), 50, "%.5g", x);
+            return buffer.data() + std::string(" ") + unit;
         };
 
         if(time < .000001)
@@ -117,7 +120,7 @@ class AutoTimer : public Timer {
     AutoTimer(std::string title = "Timer", time_print_t time_print = Simple) : Timer(title, time_print) {}
     // GCC 4.7 does not support using inheriting constructors.
 
-    /// This desctructor prints the string
+    /// This destructor prints the string
     ~AutoTimer() { std::cout << to_string() << std::endl; }
 };
 

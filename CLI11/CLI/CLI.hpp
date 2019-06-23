@@ -20,10 +20,16 @@
 
 #include "CLI/Split.hpp"
 
-#include "CLI/Ini.hpp"
+#include "CLI/ConfigFwd.hpp"
 
 #include "CLI/Validators.hpp"
+
+#include "CLI/FormatterFwd.hpp"
 
 #include "CLI/Option.hpp"
 
 #include "CLI/App.hpp"
+
+#include "CLI/Config.hpp"
+
+#include "CLI/Formatter.hpp"

@@ -13,12 +13,13 @@
 
 namespace CLI {
 
-// Use one of these on all error classes
+// Use one of these on all error classes.
+// These are temporary and are undef'd at the end of this file.
 #define CLI11_ERROR_DEF(parent, name)                                                                                  \
   protected:                                                                                                           \
-    name(std::string name, std::string msg, int exit_code) : parent(std::move(name), std::move(msg), exit_code) {}     \
-    name(std::string name, std::string msg, ExitCodes exit_code)                                                       \
-        : parent(std::move(name), std::move(msg), exit_code) {}                                                        \
+    name(std::string ename, std::string msg, int exit_code) : parent(std::move(ename), std::move(msg), exit_code) {}   \
+    name(std::string ename, std::string msg, ExitCodes exit_code)                                                      \
+        : parent(std::move(ename), std::move(msg), exit_code) {}                                                       \
                                                                                                                        \
   public:                                                                                                              \
     name(std::string msg, ExitCodes exit_code) : parent(#name, std::move(msg), exit_code) {}                           \
@@ -42,7 +43,7 @@ enum class ExitCodes {
     RequiresError,
     ExcludesError,
     ExtrasError,
-    INIError,
+    ConfigError,
     InvalidError,
     HorribleError,
     OptionNotFound,
@@ -60,16 +61,16 @@ enum class ExitCodes {
 
 /// All errors derive from this one
 class Error : public std::runtime_error {
-    int exit_code;
-    std::string name{"Error"};
+    int actual_exit_code;
+    std::string error_name{"Error"};
 
   public:
-    int get_exit_code() const { return exit_code; }
+    int get_exit_code() const { return actual_exit_code; }
 
-    std::string get_name() const { return name; }
+    std::string get_name() const { return error_name; }
 
     Error(std::string name, std::string msg, int exit_code = static_cast<int>(ExitCodes::BaseClass))
-        : runtime_error(msg), exit_code(exit_code), name(std::move(name)) {}
+        : runtime_error(msg), actual_exit_code(exit_code), error_name(std::move(name)) {}
 
     Error(std::string name, std::string msg, ExitCodes exit_code) : Error(name, msg, static_cast<int>(exit_code)) {}
 };
@@ -157,6 +158,13 @@ class CallForHelp : public ParseError {
     CallForHelp() : CallForHelp("This should be caught in your main function, see examples", ExitCodes::Success) {}
 };
 
+/// Usually something like --help-all on command line
+class CallForAllHelp : public ParseError {
+    CLI11_ERROR_DEF(ParseError, CallForAllHelp)
+    CallForAllHelp()
+        : CallForAllHelp("This should be caught in your main function, see examples", ExitCodes::Success) {}
+};
+
 /// Does not output a diagnostic in CLI11_PARSE, but allows to return from main() with a specific error code.
 class RuntimeError : public ParseError {
     CLI11_ERROR_DEF(ParseError, RuntimeError)
@@ -204,6 +212,27 @@ class RequiredError : public ParseError {
             return RequiredError("Requires at least " + std::to_string(min_subcom) + " subcommands",
                                  ExitCodes::RequiredError);
     }
+    static RequiredError Option(size_t min_option, size_t max_option, size_t used, const std::string &option_list) {
+        if((min_option == 1) && (max_option == 1) && (used == 0))
+            return RequiredError("Exactly 1 option from [" + option_list + "]");
+        else if((min_option == 1) && (max_option == 1) && (used > 1))
+            return RequiredError("Exactly 1 option from [" + option_list + "] is required and " + std::to_string(used) +
+                                     " were given",
+                                 ExitCodes::RequiredError);
+        else if((min_option == 1) && (used == 0))
+            return RequiredError("At least 1 option from [" + option_list + "]");
+        else if(used < min_option)
+            return RequiredError("Requires at least " + std::to_string(min_option) + " options used and only " +
+                                     std::to_string(used) + "were given from [" + option_list + "]",
+                                 ExitCodes::RequiredError);
+        else if(max_option == 1)
+            return RequiredError("Requires at most 1 options be given from [" + option_list + "]",
+                                 ExitCodes::RequiredError);
+        else
+            return RequiredError("Requires at most " + std::to_string(max_option) + " options be used and " +
+                                     std::to_string(used) + "were given from [" + option_list + "]",
+                                 ExitCodes::RequiredError);
+    }
 };
 
 /// Thrown when the wrong number of arguments has been received
@@ -222,6 +251,9 @@ class ArgumentMismatch : public ParseError {
     }
     static ArgumentMismatch TypedAtLeast(std::string name, int num, std::string type) {
         return ArgumentMismatch(name + ": " + std::to_string(num) + " required " + type + " missing");
+    }
+    static ArgumentMismatch FlagOverride(std::string name) {
+        return ArgumentMismatch(name + " was given a disallowed flag override");
     }
 };
 
@@ -250,12 +282,12 @@ class ExtrasError : public ParseError {
 };
 
 /// Thrown when extra values are found in an INI file
-class INIError : public ParseError {
-    CLI11_ERROR_DEF(ParseError, INIError)
-    CLI11_ERROR_SIMPLE(INIError)
-    static INIError Extras(std::string item) { return INIError("INI was not able to parse " + item); }
-    static INIError NotConfigurable(std::string item) {
-        return INIError(item + ": This option is not allowed in a configuration file");
+class ConfigError : public ParseError {
+    CLI11_ERROR_DEF(ParseError, ConfigError)
+    CLI11_ERROR_SIMPLE(ConfigError)
+    static ConfigError Extras(std::string item) { return ConfigError("INI was not able to parse " + item); }
+    static ConfigError NotConfigurable(std::string item) {
+        return ConfigError(item + ": This option is not allowed in a configuration file");
     }
 };
 
@@ -281,6 +313,9 @@ class OptionNotFound : public Error {
     CLI11_ERROR_DEF(Error, OptionNotFound)
     explicit OptionNotFound(std::string name) : OptionNotFound(name + " not found", ExitCodes::OptionNotFound) {}
 };
+
+#undef CLI11_ERROR_DEF
+#undef CLI11_ERROR_SIMPLE
 
 /// @}
 
