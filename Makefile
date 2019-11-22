@@ -1,6 +1,6 @@
 TOP = ../../extensions/master
 include $(TOP)/configure/CONFIG
-ACTIONS += uninstall
+ACTIONS += uninstall distclean
 
 # list directories that need building
 DIRS =
