@@ -4,3 +4,4 @@ jsonmcpp - 3.1.2 from https://github.com/nlohmann/json/releases
 cli11 - https://github.com/CLIUtils/CLI11 1.8.0
 https://github.com/cameron314/concurrentqueue   8f7e861
 Eigen 3.2.10
+cppzmq 4.8.1 from https://github.com/zeromq/cppzmq/
